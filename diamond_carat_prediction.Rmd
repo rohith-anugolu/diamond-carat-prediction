@@ -1,0 +1,151 @@
+---
+title: "Project 1 - linear regression"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r Setup,message=FALSE, warning=FALSE, include=FALSE}
+library(ggformula)
+library(tidyverse)
+library(tidymodels)
+library(GGally)
+```
+
+Look at the dataset
+```{r}
+glimpse(diamonds)
+summary(diamonds)
+```
+
+```{r mutates}
+diamonds %>%
+  filter(x*y*z!=0) %>%    # Remove a few records with measurements that make no sense
+  # Remove ordering of the three qualitative variables
+  mutate(cut=factor(cut,ordered=FALSE),
+         color=factor(color,ordered=FALSE),
+         clarity=factor(clarity,ordered=FALSE)) %>%
+  # Remove price from the dataset
+  select(-price) -> Diamonds
+# look at the resulting data frame
+glimpse(Diamonds)
+summary(Diamonds)
+```
+
+```{r}
+set.seed(1)
+runif(5)
+```
+
+```{r train-test}
+# set seed before random split
+set.seed(1)
+# put 20% of the data into the training set
+diamonds_split <- initial_split(Diamonds, prop = 0.80)
+
+# assign the two splits to data frames - with descriptive names
+diamonds_train <- training(diamonds_split)
+diamonds_test <- testing(diamonds_split)
+
+# splits
+diamonds_train
+diamonds_test
+```
+
+```{r scatterplots,message=FALSE}
+ggpairs(diamonds_train)
+```
+
+```{r}
+diamonds_train %>%
+  gf_histogram(~carat)
+```
+
+```{r}
+#fit the full mlr model
+lm_spec <- linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm")
+
+lm_spec
+
+mlr_mod <- lm_spec %>% 
+fit(carat ~ (.)^2, data = diamonds_train)
+
+# model output
+tidy(mlr_mod)
+glance(mlr_mod)
+mlr_aug <- augment(mlr_mod,new_data=diamonds_train)
+mlr_aug %>% gf_qq(~.resid) %>% gf_qqline()
+mlr_aug %>% gf_point(.resid~.pred)
+augment(extract_fit_engine(mlr_mod),new_data=diamonds_test,interval="prediction") -> test_aug
+rsq(test_aug,truth=carat,estimate=.fitted)
+test_aug %>%
+  mutate(moe=(.upper-.lower)/2) %>%
+  gf_point(moe~.fitted) %>%
+  gf_labs(title="Prediction accuracy",y='Margin of error (carats)',x='Predicted carats')
+```
+
+
+```{r mod.eval-function}
+mod.eval <- function(this.formula) {
+  require(gridExtra)
+  mod <- lm_spec %>% 
+    fit(this.formula, data = diamonds_train)
+  print(tidy(mod,conf.int=TRUE))
+  print(glance(mod))
+  augment(mod,new_data=diamonds_train) -> augmod
+  augmod %>%
+    gf_qq(~.resid,) %>% 
+    gf_qqline() -> p1
+  augmod %>%
+    gf_point(.resid~.pred) -> p2
+  grid.arrange(p1,p2)
+  diamonds_test %>%
+    mutate(.pred=predict(mod,new_data=diamonds_test)$.pred) %>%
+    rsq(truth=carat,estimate=.pred) %>%
+    print()
+  augment(extract_fit_engine(mod),new_data=diamonds_test,interval="prediction") -> test_aug
+  rsq(test_aug,truth=carat,estimate=.fitted)
+  test_aug %>%
+    mutate(moe=(.upper-.lower)/2) %>%
+    gf_point(moe~.fitted) %>%
+    gf_labs(title="Prediction accuracy",y='Margin of error (carats)',x='Predicted carats') %>%
+    print()
+}
+```
+
+```{r}
+this.formula <- carat ~ z
+mod.eval(this.formula)
+```
+
+```{r}
+this.formula <- carat ~ x + I(x^2)
+mod.eval(this.formula)
+```
+
+```{r}
+this.formula <- carat ~ (x+z)^2
+mod.eval(this.formula)
+```
+
+```{r}
+this.formula <- log(carat) ~ (x+z)^2
+
+mlr_mod <- lm_spec %>% 
+  fit(this.formula, data = diamonds_train)
+
+# model output
+tidy(mlr_mod,conf_int=TRUE)
+glance(mlr_mod)
+mlr_aug <- augment(mlr_mod,new_data=diamonds_train)
+mlr_aug %>% gf_qq(~.resid) %>% gf_qqline()
+mlr_aug %>% gf_point(.resid~.pred)
+augment(extract_fit_engine(mlr_mod),new_data=diamonds_test,interval="prediction") -> test_aug
+rsq(test_aug,truth=`log(carat)`,estimate=.fitted)
+test_aug %>%
+  mutate(moe=(.upper-.lower)/2) %>%
+  gf_point(moe~.fitted) %>%
+  gf_labs(title="Prediction accuracy",y='Margin of error (carats)',x='Predicted carats')
+```
