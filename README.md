@@ -34,9 +34,9 @@ This project estimates the carat weight of diamonds using visually observable ch
 
 ## 🔗 Resources
 
-- 📄 [`diamond_carat_prediction.Rmd`](./diamond_carat_prediction.Rmd): Full modeling and analysis code  
-- 📑 `diamond_carat_prediction_report.pdf`: Final project report submitted for academic review
-
+- 📄 [`diamond_carat_prediction.Rmd`](./diamond_carat_prediction.Rmd): Full modeling and analysis code
+- - 📄 [`diamond_carat_prediction.html`](./diamond_carat_prediction.html): Output file  
+- 📑 `diamond_carat_prediction_report.pdf`: Final project report 
 ---
 
 ## 📂 Files
